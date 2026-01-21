@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Knife Master XP - Remastered</title>
+<style>
+    html, body {
+        /* Daha şık, derin bir arka plan */
+        background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: white;
+        user-select: none;
+        touch-action: none;
+        opacity: 0;
+        transition: opacity 0.3s ease-in;
+    }
+    
+    /* Arka plana ince bir desen ekleyelim */
+    body::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-image: radial-gradient(#333 1px, transparent 1px);
+        background-size: 30px 30px;
+        opacity: 0.1;
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    canvas {
+        background: transparent; /* Canvas arkası şeffaf olsun ki body gradyanı görünsün */
+        /* Hafif bir parlama efekti */
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+        border-radius: 20px;
+        cursor: pointer;
+    }
+
+    /* --- LOADING EKRANI --- */
+    #loading-screen {
+        position: absolute;
+        width: 400px;
+        height: 700px;
+        background: radial-gradient(circle, #2c3e50, #000);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .loader-title {
+        font-size: 32px;
+        font-weight: 900;
+        letter-spacing: 4px;
+        color: #ff4444;
+        margin-bottom: 20px;
+        text-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
+    }
+    .loader-bar-bg {
+        width: 200px;
+        height: 6px;
+        background: #333;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: inset 0 0 5px #000;
+    }
+    .loader-bar-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff4444, #ff8888);
+        transition: width 0.1s;
+    }
+
+    /* --- ANA MENÜ --- */
+    #main-menu {
+        position: absolute;
+        width: 400px;
+        height: 700px;
+        background: rgba(0,0,0,0.85);
+        backdrop-filter: blur(5px);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 500;
+        border-radius: 20px;
+    }
+    .menu-logo {
+        font-size: 45px;
+        font-weight: 900;
+        color: #fff;
+        margin-bottom: 60px;
+        text-align: center;
+        line-height: 1;
+        text-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    }
+    .menu-logo span { 
+        color: #ffd700; 
+        font-size: 22px; 
+        display: block; 
+        letter-spacing: 12px; 
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+    }
+    
+    .btn-main {
+        width: 240px;
+        padding: 20px;
+        margin: 12px;
+        border: none;
+        border-radius: 50px;
+        font-size: 22px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .btn-main:active { transform: scale(0.95); }
+    #btn-play { background: linear-gradient(45deg, #4CAF50, #45a049); color: white; box-shadow: 0 10px 25px rgba(76, 175, 80, 0.3); }
+    #btn-shop-main { background: linear-gradient(45deg, #ff9800, #f57c00); color: white; box-shadow: 0 10px 25px rgba(255, 152, 0, 0.3); }
+
+    /* --- SEVİYE ATLAMA EKRANI --- */
+    #level-up-screen {
+        position: absolute;
+        width: 400px;
+        height: 700px;
+        background: rgba(0,0,0,0.92);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 800;
+        border-radius: 20px;
+        text-align: center;
+    }
+    .lvl-title { 
+        color: #4CAF50; 
+        font-size: 50px; 
+        font-weight: 900; 
+        margin: 0;
+        text-shadow: 0 0 30px rgba(76, 175, 80, 0.4);
+        animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .lvl-reward { color: #ffd700; font-size: 28px; margin-top: 15px; font-weight: bold; }
+    
+    @keyframes popIn {
+        0% { transform: scale(0.5); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* --- OYUN İÇİ UI --- */
+    #ui-layer {
+        position: absolute;
+        pointer-events: none;
+        width: 400px;
+        height: 700px;
+        display: none;
+    }
+    #coin-display {
+        position: absolute;
+        top: 25px;
+        left: 25px;
+        font-size: 26px;
+        font-weight: bold;
+        color: #ffd700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        pointer-events: auto;
+        background: rgba(0,0,0,0.5);
+        padding: 5px 15px;
+        border-radius: 30px;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+    #shop-btn {
+        position: absolute;
+        bottom: 25px;
+        right: 25px;
+        pointer-events: auto;
+        background: linear-gradient(135deg, #ff9800, #f57c00);
+        border: 2px solid #fff;
+        border-radius: 50%;
+        width: 70px;
+        height: 70px;
+        font-size: 30px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        transition: transform 0.2s;
+    }
+    #shop-btn:active { transform: scale(0.9); }
+
+    /* MAĞAZA MODAL */
+    #shop-modal {
+        position: absolute;
+        width: 380px;
+        height: 650px;
+        background: #1a1a1a;
+        border: 2px solid #ff9800;
+        border-radius: 20px;
+        display: none;
+        flex-direction: column;
+        padding: 15px;
+        z-index: 2000;
+        box-sizing: border-box;
+        box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    }
+    .shop-header { text-align: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    .shop-items {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        overflow-y: auto;
+        flex-grow: 1;
+        padding: 5px;
+    }
+    /* Scrollbar düzenlemesi */
+    .shop-items::-webkit-scrollbar { width: 5px; }
+    .shop-items::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+
+    .shop-item { 
+        background: #252525; 
+        border-radius: 12px; 
+        padding: 10px; 
+        text-align: center; 
+        border: 1px solid #333; 
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.1s;
+    }
+    .shop-item:hover { transform: translateY(-2px); }
+    .shop-item.selected { 
+        border-color: #4CAF50; 
+        background: linear-gradient(to bottom, #1a301a, #252525); 
+        box-shadow: 0 0 15px rgba(76, 175, 80, 0.3); 
+    }
+    
+    .shop-item canvas {
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+        margin-bottom: 5px;
+        cursor: default;
+    }
+
+    .shop-item button { 
+        width: 100%; 
+        font-size: 11px; 
+        padding: 8px 0; 
+        margin-top: 5px; 
+        border: none; 
+        border-radius: 6px; 
+        font-weight: bold; 
+        cursor: pointer; 
+        color: white;
+    }
+    
+    .btn-buy { background: #ff9800; }
+    .btn-equip { background: #2196F3; }
+    .btn-equipped { background: #4CAF50; pointer-events: none; }
+    .btn-disabled { background: #444 !important; color: #888 !important; cursor: not-allowed !important; }
+
+    #restartBtn {
+        position: absolute;
+        top: 60%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        padding: 18px 45px;
+        background: linear-gradient(45deg, #ff4444, #d32f2f);
+        border: none;
+        border-radius: 50px;
+        color: white;
+        font-size: 22px;
+        font-weight: bold;
+        display: none;
+        cursor: pointer;
+        pointer-events: auto;
+        z-index: 100;
+        box-shadow: 0 10px 30px rgba(255, 68, 68, 0.4);
+        text-transform: uppercase;
+    }
+</style>
+</head>
+<body style="background: #000;"> <div id="loading-screen">
+    <div class="loader-title">KNIFE MASTER XP</div>
+    <div class="loader-bar-bg"><div class="loader-bar-fill" id="load-progress"></div></div>
+    <p style="font-size: 12px; margin-top: 15px; color: #888; font-weight: bold; letter-spacing: 1px;">YÜKLENİYOR...</p>
+</div>
+
+<div id="main-menu">
+    <div class="menu-logo">KNIFE MASTER<br><span>XP EDITION</span></div>
+    <button class="btn-main" id="btn-play">OYUNA BAŞLA</button>
+    <button class="btn-main" id="btn-shop-main">MAĞAZA</button>
+</div>
+
+<div id="level-up-screen">
+    <p style="color: white; font-size: 18px; letter-spacing: 5px; opacity: 0.8;">LEVEL TAMAMLANDI</p>
+    <h1 class="lvl-title">TEBRİKLER!</h1>
+    <div class="lvl-reward">💰 +<span id="earned-coin-txt">0</span> COIN</div>
+    <p style="color: #666; margin-top: 20px;">Sıradaki seviye yükleniyor...</p>
+</div>
+
+<canvas id="game" width="400" height="700"></canvas>
+
+<div id="ui-layer">
+    <div id="coin-display">💰 <span id="coin-count">0</span></div>
+    <button id="restartBtn">YENİDEN DENE</button>
+    <button id="shop-btn">🛒</button>
+</div>
+
+<div id="shop-modal">
+    <div class="shop-header">
+        <h2 style="color: #ff9800; margin:0; letter-spacing: 1px;">SİLAH MAĞAZASI</h2>
+        <div style="font-size:14px; margin-top:5px; color:#aaa;">Mevcut Bakiye: <span id="shop-coins" style="color: #ffd700; font-weight:bold; font-size: 16px;">0</span></div>
+    </div>
+    <div class="shop-items" id="shop-list"></div>
+    <button id="close-shop" style="margin-top: 10px; padding: 15px; border-radius: 12px; border: none; cursor: pointer; background: #333; color: white; font-weight:bold; transition: background 0.2s;">KAPAT</button>
+</div>
+
+<script>
+// Sayfa yüklenir yüklenmez
+document.body.style.opacity = "1";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const loadProgress = document.getElementById("load-progress");
+const loadingScreen = document.getElementById("loading-screen");
+const mainMenu = document.getElementById("main-menu");
+const levelUpScreen = document.getElementById("level-up-screen");
+const earnedCoinTxt = document.getElementById("earned-coin-txt");
+const uiLayer = document.getElementById("ui-layer");
+const shopModal = document.getElementById("shop-modal");
+const coinCountEl = document.getElementById("coin-count");
+const shopCoinsEl = document.getElementById("shop-coins");
+const restartBtn = document.getElementById("restartBtn");
+
+// --- VERİ SİSTEMİ (DEĞİŞMEDİ) ---
+let userCoins = parseInt(localStorage.getItem('knifeGameCoins')) || 0;
+let equippedKnifeIndex = parseInt(localStorage.getItem('knifeGameEquipped')) || 0;
+let ownedKnives = JSON.parse(localStorage.getItem('knifeGameOwned')) || [0];
+
+const knifeCatalog = [
+    { id: 0, name: "Klasik", price: 0, type: "solid", colors: ["#eee", "#333", "#ff4444"] },
+    { id: 1, name: "Orman", price: 150, type: "camo", colors: ["#4CAF50", "#2E7D32", "#1B5E20"] },
+    { id: 2, name: "Denizci", price: 300, type: "striped", colors: ["#2196F3", "#0D47A1", "#fff"] },
+    { id: 3, name: "Alev", price: 500, type: "gradient", colors: ["#FF5722", "#BF360C", "#FFCCBC"] },
+    { id: 4, name: "Ninja", price: 750, type: "solid", colors: ["#333", "#000", "#555"] },
+    { id: 5, name: "Altın", price: 1000, type: "solid", colors: ["#FFD700", "#B8860B", "#FFF"] },
+    { id: 6, name: "Zehir", price: 1500, type: "neon", colors: ["#76FF03", "#33691E", "#CCFF90"] },
+    { id: 7, name: "Buzul", price: 2000, type: "gradient", colors: ["#00B0FF", "#01579B", "#E1F5FE"] },
+    { id: 8, name: "Siber", price: 2500, type: "neon", colors: ["#00E5FF", "#003333", "#00FFFF"] },
+    { id: 9, name: "Lazer", price: 3500, type: "neon", colors: ["#F50057", "#880E4F", "#FF80AB"] },
+    { id: 10, name: "Yakut", price: 5000, type: "gradient", colors: ["#D50000", "#550000", "#FF8A80"] },
+    { id: 11, name: "Galaksi", price: 10000, type: "neon", colors: ["#E040FB", "#4A148C", "#EA80FC"] }
+];
+
+function startApp() {
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 100) progress = 100;
+        loadProgress.style.width = progress + "%";
+        if (progress === 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+                loadingScreen.style.display = "none";
+                mainMenu.style.display = "flex";
+                uiLayer.style.display = "block";
+                updateCoinDisplay();
+            }, 500);
+        }
+    }, 120);
+}
+
+const CENTER_X = 200, CENTER_Y = 240, BASE_RADIUS = 80;
+let knifeY = 600, knifeFlying = false, targetAngle = 0;
+let baseSpeed = 0.018; 
+let rotationSpeed = baseSpeed, score = 0, level = 1, knivesThisLevel = 0;
+let totalKnives = 7, gameOver = false, showingLevelComplete = false, gamePaused = true;
+const stuckKnives = [];
+
+// GÖRSEL EFEKT DEĞİŞKENLERİ
+let targetScale = 1.0; // Vurunca büyüme efekti için
+let woodParticles = []; // Tahta parçacıkları
+let hitFlash = 0; // Vurunca beyaz parlama
+
+function updateCoinDisplay() {
+    coinCountEl.innerText = userCoins;
+    shopCoinsEl.innerText = userCoins;
+    localStorage.setItem('knifeGameCoins', userCoins);
+}
+
+function calculateLevelReward(lvl) {
+    return 20 + Math.floor((lvl - 1) / 10) * 10;
+}
+
+// Bıçak Çizimi (Biraz geliştirildi: gölgelendirme ve highlight eklendi)
+function drawKnifeGeneric(ctxRef, x, y, angle, typeIndex) {
+    const k = knifeCatalog[typeIndex];
+    ctxRef.save();
+    ctxRef.translate(x, y);
+    ctxRef.rotate(angle);
+    
+    if (k.type === "neon") { 
+        ctxRef.shadowBlur = 15; 
+        ctxRef.shadowColor = k.colors[2]; 
+    }
+
+    // Bıçak Gövdesi (Metalik his için gradient)
+    let bladeGrad = ctxRef.createLinearGradient(-4, 0, 4, 0);
+    bladeGrad.addColorStop(0, k.colors[0]);
+    bladeGrad.addColorStop(0.5, "#fff"); // Ortaya parlaklık
+    bladeGrad.addColorStop(1, k.colors[0]);
+    
+    // Normal renkler neon vs için
+    if (k.type !== "solid") {
+         ctxRef.fillStyle = k.colors[0];
+    } else {
+         ctxRef.fillStyle = bladeGrad;
+    }
+
+    ctxRef.beginPath(); 
+    ctxRef.moveTo(-5, 40); 
+    ctxRef.lineTo(5, 40); 
+    ctxRef.lineTo(0, 0); 
+    ctxRef.fill();
+    
+    // Sap (Handle)
+    ctxRef.fillStyle = k.colors[1]; 
+    ctxRef.fillRect(-4, 40, 8, 22);
+    
+    // Sap Detayı
+    ctxRef.fillStyle = "rgba(0,0,0,0.3)";
+    ctxRef.fillRect(-4, 45, 8, 2);
+    ctxRef.fillRect(-4, 50, 8, 2);
+    ctxRef.fillRect(-4, 55, 8, 2);
+
+    ctxRef.restore();
+}
+
+// YENİ: Gerçekçi Kütük Çizimi
+function drawRealisticLog(ctx, x, y, radius) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(targetScale, targetScale); // Vuruş efekti burada uygulanır
+
+    // Ana Odun Rengi
+    ctx.fillStyle = "#6F4E37"; // Daha doğal kahve
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Yaş Halkaları (Rings)
+    ctx.strokeStyle = "#5D4037";
+    ctx.lineWidth = 2;
+    for(let r = 10; r < radius - 5; r += 12) {
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    
+    // Kabuk (Bark) - Daha kalın ve dokulu
+    ctx.strokeStyle = "#3E2723";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Gölge/Işık (Hacim kazandırmak için gradient)
+    let lighting = ctx.createRadialGradient(-20, -20, 10, 0, 0, radius);
+    lighting.addColorStop(0, "rgba(255,255,255,0.1)");
+    lighting.addColorStop(1, "rgba(0,0,0,0.3)");
+    ctx.fillStyle = lighting;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// YENİ: Parçacık Sistemi
+function createParticles(x, y, color) {
+    for(let i=0; i<8; i++) {
+        woodParticles.push({
+            x: x,
+            y: y,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.5) * 8,
+            life: 1.0,
+            color: color || "#D7CCC8",
+            size: Math.random() * 4 + 2
+        });
+    }
+}
+
+function updateAndDrawParticles() {
+    for (let i = woodParticles.length - 1; i >= 0; i--) {
+        let p = woodParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.03;
+        p.size *= 0.95; // Küçülerek kaybolsun
+
+        if (p.life <= 0) {
+            woodParticles.splice(i, 1);
+        } else {
+            ctx.save();
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.life * 5); // Döndür
+            ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+            ctx.restore();
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Hedef çizgisi (Daha şık)
+    if (!gameOver && !showingLevelComplete && !knifeFlying) {
+        ctx.save();
+        let grad = ctx.createLinearGradient(CENTER_X, knifeY, CENTER_X, CENTER_Y + BASE_RADIUS);
+        grad.addColorStop(0, "rgba(255, 255, 255, 0.5)");
+        grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2; 
+        ctx.setLineDash([5, 15]);
+        ctx.beginPath(); ctx.moveTo(CENTER_X, knifeY); ctx.lineTo(CENTER_X, CENTER_Y + BASE_RADIUS); ctx.stroke();
+        ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(CENTER_X, CENTER_Y);
+    ctx.rotate(targetAngle);
+    
+    // 1. Kütüğü çiz (Eski daire yerine yeni fonksiyon)
+    // scale transformunu fonksiyon içinde hallediyoruz ama buradaki rotate dışarıda kalmalı
+    ctx.save();
+    ctx.scale(targetScale, targetScale); // Kütük dönüşüne scale ekle
+    
+    // Log çizimi (translate 0,0 çünkü zaten translate'deyiz)
+    // Manuel çizim yerine fonksiyonu çağırırken context'i sıfırlayıp oraya taşıyalım ya da buraya inline edelim.
+    // Kolaylık olsun diye inline ediyoruz ama scale efektini koruyarak:
+    
+    // --- Log Render ---
+    ctx.fillStyle = "#6F4E37"; 
+    ctx.beginPath(); ctx.arc(0, 0, BASE_RADIUS, 0, Math.PI * 2); ctx.fill();
+    
+    // Halkalar
+    ctx.strokeStyle = "rgba(62, 39, 35, 0.5)"; ctx.lineWidth = 2;
+    for(let r=10; r<BASE_RADIUS-5; r+=12) { ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.stroke(); }
+    
+    // Kabuk
+    ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(0,0,BASE_RADIUS,0,Math.PI*2); ctx.stroke();
+
+    // İç Gölge
+    let radG = ctx.createRadialGradient(-20,-20,10,0,0,BASE_RADIUS);
+    radG.addColorStop(0, "rgba(255,255,255,0.05)");
+    radG.addColorStop(1, "rgba(0,0,0,0.4)");
+    ctx.fillStyle = radG; ctx.fill();
+    // --- End Log Render ---
+    
+    ctx.restore();
+    
+    // Saplanan Bıçaklar
+    stuckKnives.forEach(k => {
+        ctx.save(); 
+        ctx.scale(targetScale, targetScale); // Bıçaklar da kütükle beraber hareket etmeli
+        ctx.rotate(k.angle); 
+        ctx.translate(0, -BASE_RADIUS + 10); // Biraz içeri gömülsün
+        
+        // Bıçak Gölgesi (Derinlik için)
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+
+        drawKnifeGeneric(ctx, 0, 0, 0, equippedKnifeIndex); 
+        ctx.restore();
+    });
+    ctx.restore();
+
+    // Parçacıklar
+    updateAndDrawParticles();
+
+    // Atılan Bıçak (Pointer)
+    if (!gameOver) {
+        ctx.fillStyle = "rgba(255, 68, 68, 0.9)";
+        ctx.beginPath();
+        let entryY = CENTER_Y + BASE_RADIUS * targetScale; // Scale'e göre pozisyon
+        ctx.moveTo(CENTER_X - 6, entryY + 10); 
+        ctx.lineTo(CENTER_X + 6, entryY + 10); 
+        ctx.lineTo(CENTER_X, entryY - 5);
+        ctx.fill();
+    }
+
+    if (!gameOver && !showingLevelComplete) drawKnifeGeneric(ctx, CENTER_X, knifeY, 0, equippedKnifeIndex);
+
+    // Flash Efekti
+    if (hitFlash > 0) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${hitFlash})`;
+        ctx.beginPath(); ctx.arc(CENTER_X, CENTER_Y, BASE_RADIUS, 0, Math.PI*2); ctx.fill();
+        hitFlash -= 0.1;
+    }
+
+    if (!gamePaused && !showingLevelComplete) {
+        // Skor yazısı - Gölge ekleyelim
+        ctx.shadowColor = "rgba(0,0,0,0.8)";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "white"; ctx.textAlign = "center";
+        ctx.font = "900 60px 'Segoe UI', Arial"; ctx.fillText(score, CENTER_X, 100);
+        
+        ctx.font = "bold 20px 'Segoe UI', Arial"; 
+        ctx.fillStyle = "#FFD700"; 
+        ctx.fillText("LEVEL " + level, CENTER_X, 135);
+        ctx.shadowBlur = 0; // Reset shadow
+    }
+}
+
+function update() {
+    if (!gamePaused && !gameOver && !showingLevelComplete) {
+        targetAngle += rotationSpeed;
+        
+        // Pulse efekti geri dönüş (elastik)
+        if (targetScale > 1.0) targetScale -= 0.005; 
+        else targetScale = 1.0;
+
+        if (knifeFlying) {
+            knifeY -= 45; // Hız aynı
+            if (knifeY <= CENTER_Y + BASE_RADIUS) {
+                let hitAngle = -targetAngle;
+                let hitNorm = ((hitAngle % (Math.PI*2)) + (Math.PI*2)) % (Math.PI*2);
+                let collisionThreshold = 0.16; 
+                let collision = stuckKnives.some(k => {
+                    let aNorm = ((k.angle % (Math.PI*2)) + (Math.PI*2)) % (Math.PI*2);
+                    let diff = Math.abs(aNorm - hitNorm);
+                    if (diff > Math.PI) diff = (Math.PI*2) - diff;
+                    return diff < collisionThreshold;
+                });
+                if (collision) {
+                    gameOver = true;
+                    // Titreme efekti
+                    canvas.style.transform = "translateX(5px)";
+                    setTimeout(()=> canvas.style.transform = "translateX(-5px)", 50);
+                    setTimeout(()=> canvas.style.transform = "translateX(0)", 100);
+                    restartBtn.style.display = "block";
+                } else {
+                    stuckKnives.push({angle: hitAngle});
+                    score++; knivesThisLevel++; knifeFlying = false; knifeY = 600;
+                    
+                    // --- GÖRSEL EFEKTLER (JUICE) ---
+                    targetScale = 1.08; // Kütük büyür
+                    createParticles(CENTER_X, CENTER_Y + BASE_RADIUS, "#D7CCC8"); // Talaş çıkar
+                    hitFlash = 0.4; // Beyaz parlama
+                    // --------------------------------
+
+                    if (knivesThisLevel >= totalKnives) showLevelUp();
+                }
+            }
+        }
+    }
+    draw();
+    requestAnimationFrame(update);
+}
+
+function showLevelUp() {
+    showingLevelComplete = true;
+    let reward = calculateLevelReward(level);
+    userCoins += reward;
+    updateCoinDisplay();
+    earnedCoinTxt.innerText = reward;
+    levelUpScreen.style.display = "flex";
+    setTimeout(() => {
+        levelUpScreen.style.display = "none";
+        nextLevel();
+    }, 2000);
+}
+
+function nextLevel() {
+    level++; showingLevelComplete = false; stuckKnives.length = 0; knivesThisLevel = 0;
+    rotationSpeed = baseSpeed + (level * 0.003); 
+    totalKnives = Math.min(12, 6 + Math.floor(level/3));
+    knifeFlying = false;
+    targetScale = 1.0;
+}
+
+function renderShop() {
+    const list = document.getElementById("shop-list");
+    list.innerHTML = "";
+    knifeCatalog.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "shop-item" + (index === equippedKnifeIndex ? " selected" : "");
+        const canvasPreview = document.createElement("canvas");
+        canvasPreview.width = 50; canvasPreview.height = 70;
+        drawKnifeGeneric(canvasPreview.getContext("2d"), 25, 5, 0, index);
+        div.appendChild(canvasPreview);
+        const nameDiv = document.createElement("div");
+        nameDiv.style.fontSize = "12px"; nameDiv.innerText = item.name;
+        div.appendChild(nameDiv);
+        const btn = document.createElement("button");
+        const isOwned = ownedKnives.includes(index);
+        if (isOwned) {
+            btn.innerText = index === equippedKnifeIndex ? "KULLANILIYOR" : "KUŞAN";
+            btn.className = index === equippedKnifeIndex ? "btn-equipped" : "btn-equip";
+            if (index !== equippedKnifeIndex) btn.onclick = () => { equippedKnifeIndex = index; localStorage.setItem('knifeGameEquipped', index); renderShop(); };
+        } else {
+            btn.innerText = item.price + " 💰";
+            if (userCoins >= item.price) {
+                btn.className = "btn-buy";
+                btn.onclick = () => { userCoins -= item.price; ownedKnives.push(index); localStorage.setItem('knifeGameOwned', JSON.stringify(ownedKnives)); updateCoinDisplay(); renderShop(); };
+            } else {
+                btn.className = "btn-disabled";
+            }
+        }
+        div.appendChild(btn);
+        list.appendChild(div);
+    });
+}
+
+document.getElementById("btn-play").onclick = () => { mainMenu.style.display = "none"; gamePaused = false; };
+document.getElementById("btn-shop-main").onclick = () => { shopModal.style.display = "flex"; renderShop(); };
+document.getElementById("shop-btn").onclick = () => { gamePaused = true; shopModal.style.display = "flex"; renderShop(); };
+document.getElementById("close-shop").onclick = () => { shopModal.style.display = "none"; if (mainMenu.style.display === "none") gamePaused = false; };
+restartBtn.onclick = () => {
+    score = 0; level = 1; rotationSpeed = baseSpeed; stuckKnives.length = 0; knivesThisLevel = 0;
+    gameOver = false; knifeY = 600; restartBtn.style.display = "none";
+    woodParticles = [];
+};
+
+const handleAction = () => { if (!gamePaused && !gameOver && !showingLevelComplete && !knifeFlying) knifeFlying = true; };
+canvas.addEventListener("touchstart", (e) => { e.preventDefault(); handleAction(); });
+canvas.addEventListener("mousedown", handleAction);
+
+startApp();
+update();
+</script>
+</body>
+</html>
+
